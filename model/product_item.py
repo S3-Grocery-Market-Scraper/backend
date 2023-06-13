@@ -1,24 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime
-from beanie import Document, Indexed, DeleteRules
-import re
+from .product_model import ProductModel
+from .company import Company
+from beanie import Document, DeleteRules, Link
 
 
-class Company(Document):
-    name: Indexed(str)
+class ProductItem(Document):
+    company: Link[Company]
+    product_model: Link[ProductModel]
+    price: float
     created_on: datetime
     last_modified: datetime
 
     @classmethod
-    async def read_all(cls, name: str | None = None, offset: int | None = None, limit: int | None = None,
-                       sort: list[list[str, str]] | None = None) -> list[Company]:
-        query = cls.find()
+    async def read_all_by_product_model(cls, product_model: ProductModel):
+        return await cls.find_many(cls.product_model.id == product_model.id, fetch_links=True).to_list()
 
-        if name is not None:
-            query = query.find(
-                cls.name == re.compile(name, flags=re.IGNORECASE)
-            )
+    @classmethod
+    async def read_all_by_company(cls, company: Company):
+        return await cls.find_many(cls.company == company).to_list()
+
+    @classmethod
+    async def read_all(cls, offset: int | None = None, limit: int | None = None,
+                       sort: list[list[str, str]] | None = None) -> list[ProductItem]:
+        query = cls.find(fetch_links=True)
 
         if offset is not None:
             query = query.skip(offset)
@@ -39,24 +45,26 @@ class Company(Document):
 
 
     @classmethod
-    async def try_get_by_id(cls, id: str) -> Company | None:
+    async def try_get_by_id(cls, id: str) -> ProductItem | None:
         return await cls.get(id)
 
     @classmethod
-    async def get_by_id(cls, id: str) -> Company:
+    async def get_by_id(cls, id: str) -> ProductItem:
         company = await cls.get(id)
 
         if company is None:
-            raise Exception("Company not found")
+            raise Exception("ProductItem not found")
 
         return company
 
     @classmethod
-    async def create_new(cls, name: str) -> Company:
+    async def create_new(cls, company: Company, product_model: ProductModel, price: float) -> ProductItem:
         current_datetime = datetime.now()
 
         new_company = cls(
-            name=name,
+            company=company,
+            product_model=product_model,
+            price=price,
             created_on=current_datetime,
             last_modified=current_datetime
         )
@@ -65,8 +73,8 @@ class Company(Document):
 
         return new_company
 
-    async def update_self(self, name: str):
-        self.name = name
+    async def update_self(self, price: float):
+        self.price = price
         self.last_modified = datetime.now()
 
         await self.save()
