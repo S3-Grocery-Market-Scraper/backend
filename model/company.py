@@ -6,14 +6,20 @@ import re
 
 
 class Company(Document):
+    code: Indexed(str)
     name: Indexed(str)
     created_on: datetime
     last_modified: datetime
 
     @classmethod
-    async def read_all(cls, name: str | None = None, offset: int | None = None, limit: int | None = None,
+    async def read_all(cls, code: str | None = None, name: str | None = None, offset: int | None = None, limit: int | None = None,
                        sort: list[list[str, str]] | None = None) -> list[Company]:
         query = cls.find()
+
+        if code is not None:
+            query = query.find(
+                cls.code == re.compile(code, flags=re.IGNORECASE)
+            )
 
         if name is not None:
             query = query.find(
@@ -52,10 +58,11 @@ class Company(Document):
         return company
 
     @classmethod
-    async def create_new(cls, name: str) -> Company:
+    async def create_new(cls, code: str, name: str) -> Company:
         current_datetime = datetime.now()
 
         new_company = cls(
+            code=code,
             name=name,
             created_on=current_datetime,
             last_modified=current_datetime
@@ -65,7 +72,8 @@ class Company(Document):
 
         return new_company
 
-    async def update_self(self, name: str):
+    async def update_self(self, code:str, name: str):
+        self.code = code
         self.name = name
         self.last_modified = datetime.now()
 

@@ -1,19 +1,8 @@
-"""
-Pytest fixtures
-"""
-
-# pylint: disable=wrong-import-position
-
-from typing import Iterator
-
 import pytest
-from asgi_lifespan import LifespanManager
-from beanie import init_beanie
 from fastapi import FastAPI
 from httpx import AsyncClient
-
+from model import init_database
 from api import app
-from model import Company, Product
 
 
 async def clear_database(server: FastAPI) -> None:
@@ -23,8 +12,9 @@ async def clear_database(server: FastAPI) -> None:
 
 
 @pytest.fixture()
-async def test_client() -> Iterator[AsyncClient]:
+async def test_client() -> AsyncClient:
+    await init_database('mongodb://root:1234@localhost:27017', 'grocery-shopping-test', True)
+
     """Async server client that handles lifespan and teardown"""
-    async with LifespanManager(app):
-        async with AsyncClient(app=app, base_url="http://test") as _client:
-            yield _client
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
